@@ -6,11 +6,11 @@ Cordis is the vendored plugin framework underneath DeepSeek Harness. This primer
 
 ## Cordis In Five Ideas
 
-- **A plugin is a object that implements Service.** It can be a function with optional `inject` and `apply(ctx)` fields, or a `Service` subclass whose lifecycle Cordis mounts into the current context.
-- **A context is a repository of services.** A service claims a stable `ctx.<key>` such as `ctx.tools`, `ctx.llm`, or `ctx.sessions` from a context; other plugins find services via key instead of importing a concrete implementation.
-- **Declare service dependency via `inject`.** A plugin that names required services waits until those services exist, so load order is expressed through service requirements rather than manual boot sequencing.
-- **Typed Events for communication.** Services declare event names through TypeScript declaration merging, then dispatch them as `emit`, `waterfall`, `parallel`, `serial`, or `bail` depending on whether listeners observe, wrap, fan out, run in order, or stop at the first bail value.
-- **Registrations are reversible effects.** Prompt sections, tool schemas, adapters, providers, and listeners are installed through `ctx.effect()` or `ctx.on()` so reload and teardown unwind them predictably.
+- **A plugin is code that Cordis loads into a context.** It is an `apply(ctx)` function, an object with an `apply(ctx)` method, or a `Service` subclass; any form may declare `inject`. A plugin that exposes a service usually takes the `Service` subclass form, and Cordis starts and stops it with the context that loaded it.
+- **A context is a registry of services.** A service registers under a stable `ctx.<key>` such as `ctx.tools`, `ctx.llm`, or `ctx.sessions`; other plugins look the service up by that key instead of importing a concrete implementation, so configuration can replace the implementation.
+- **`inject` declares service dependencies.** Cordis starts a plugin only after every service listed in its `inject` exists, and unloads the plugin when one of them disappears. Load order therefore follows service dependencies, not position in `cordis.yml` or a hand-written boot sequence.
+- **Plugins communicate through typed events.** Each package adds its event names and payload types to a shared TypeScript interface through declaration merging. Each event has one dispatch mode: `emit` notifies listeners, `waterfall` lets each listener wrap the next one, `parallel` runs listeners concurrently, and `serial` (awaited) and `bail` (synchronous) run listeners in order until one returns a value.
+- **Registrations are reversible effects.** Plugins install prompt sections, tool schemas, adapters, providers, and listeners through `ctx.effect()` or `ctx.on()`. Cordis records a disposer for each registration and runs it when the plugin reloads or unloads, so nothing a plugin registered outlives the plugin.
 
 ## Dispatch Modes
 

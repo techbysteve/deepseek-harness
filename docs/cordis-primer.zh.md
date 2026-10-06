@@ -6,11 +6,11 @@ Cordis 是 DeepSeek Harness 底层以 vendor 方式引入的插件框架。本�
 
 ## 五个核心概念
 
-- **插件是实现 Service 的对象。** 它可以是一个带有可选 `inject` 和 `apply(ctx)` 字段的函数，也可以是一个 `Service` 子类，其生命周期由 Cordis 挂载到当前上下文中。
-- **上下文是服务的容器。** 一个服务占据一个稳定的 `ctx.<key>`（如 `ctx.tools`、`ctx.llm`、`ctx.sessions`）；其他插件通过 key 查找服务，而非导入具体实现。
-- **通过 `inject` 声明服务依赖。** 插件声明所需的服务后，会等待这些服务就绪才启动；加载顺序通过服务依赖表达，而非手动编排启动序列。
-- **类型化事件用于通信。** 服务通过 TypeScript 声明合并注册事件名，然后以 `emit`、`waterfall`（瀑布式事件）、`parallel`、`serial` 或 `bail` 方式分发，分别对应监听者观察、包装、并行扇出、按序执行或停在首个 bail 值。
-- **注册是可逆的副作用。** 提示词片段、工具 schema、适配器、提供方和监听器通过 `ctx.effect()` 或 `ctx.on()` 安装，reload 和 teardown 时会按预期撤销。
+- **插件是 Cordis 加载到上下文中的代码。** 它可以是一个 `apply(ctx)` 函数、一个带有 `apply(ctx)` 方法的对象，或一个 `Service` 子类；任何形式都可以声明 `inject`。对外提供服务的插件通常采用 `Service` 子类形式，Cordis 会随加载它的上下文启动和停止它。
+- **上下文是服务的注册表。** 服务注册在一个稳定的 `ctx.<key>` 下（如 `ctx.tools`、`ctx.llm`、`ctx.sessions`）；其他插件通过该 key 查找服务，而非导入具体实现，因此可以通过配置替换实现。
+- **`inject` 声明服务依赖。** 插件 `inject` 中列出的服务全部就绪后，Cordis 才会启动该插件；其中任一服务消失时，Cordis 会卸载该插件。因此加载顺序由服务依赖决定，而非 `cordis.yml` 中的位置或手写的启动序列。
+- **插件通过类型化事件通信。** 每个包通过 TypeScript 声明合并，将事件名和载荷类型加入共享接口。每个事件只有一种分发模式：`emit` 通知监听器，`waterfall`（瀑布式事件）让每个监听器包装下一个监听器，`parallel` 并发运行监听器，`serial`（await）和 `bail`（同步）按顺序运行监听器，直到某个监听器返回值。
+- **注册是可逆的副作用。** 插件通过 `ctx.effect()` 或 `ctx.on()` 安装提示词片段、工具 schema、适配器、提供方和监听器。Cordis 为每项注册记录一个 disposer（资源释放函数），并在插件重新加载或卸载时执行它，因此插件注册的内容不会比插件本身存活更久。
 
 <a id="dispatch-modes"></a>
 
@@ -48,4 +48,4 @@ Cordis 是 DeepSeek Harness 底层以 vendor 方式引入的插件框架。本�
 
 将行为封装为插件：工具流水线事件属于 `ctx.tools`，模型流式输出属于 `ctx.llm`，实时 agent（智能体）协调属于 `ctx.agents`。拦截和策略优先使用事件；直接能力调用优先使用服务方法。
 
-每个注册都应有对应的 disposer（资源释放函数）：要么从 `ctx.effect()` 返回一个，要么使用 Cordis 提供的辅助方法自动处理。如果 teardown 顺序有要求，请将相关工作放在同一个 effect 中，以确保资源按预期顺序释放。
+每个注册都应有对应的 disposer：要么从 `ctx.effect()` 返回一个，要么使用 Cordis 提供的辅助方法自动处理。如果 teardown 顺序有要求，请将相关工作放在同一个 effect 中，以确保资源按预期顺序释放。
